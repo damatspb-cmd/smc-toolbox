@@ -1,0 +1,809 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SMC Toolbox XAUUSD</title>
+    
+    <!-- Memuat library Chart.js dan Plugin Anotasi untuk grafik -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation"></script>
+
+    <style>
+        /* ========================================================
+           CSS MURNI - TEMA GELAP (DARK THEME) & RESPONSIVE
+           ======================================================== */
+        :root {
+            --bg-color: #0f172a;        /* Background utama (Slate 900) */
+            --panel-bg: #1e293b;        /* Background panel/kartu (Slate 800) */
+            --text-main: #f8fafc;       /* Teks utama */
+            --text-muted: #94a3b8;      /* Teks redup */
+            --accent-gold: #fbbf24;     /* Warna aksen emas (XAU) */
+            --accent-hover: #f59e0b;
+            --bullish: #10b981;         /* Hijau */
+            --bearish: #ef4444;         /* Merah */
+            --border: #334155;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            line-height: 1.6;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        /* HEADER & API KEY SECTION */
+        header {
+            background-color: var(--panel-bg);
+            padding: 15px 20px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            align-items: center;
+            gap: 15px;
+        }
+
+        header h1 {
+            color: var(--accent-gold);
+            font-size: 1.5rem;
+            margin: 0;
+        }
+
+        .api-setup {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        input[type="text"] {
+            padding: 8px 12px;
+            border-radius: 6px;
+            border: 1px solid var(--border);
+            background: var(--bg-color);
+            color: var(--text-main);
+            width: 250px;
+        }
+
+        button {
+            padding: 8px 16px;
+            border-radius: 6px;
+            border: none;
+            background-color: var(--accent-gold);
+            color: #000;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        button:hover { background-color: var(--accent-hover); }
+        button:disabled { background-color: #555; color: #888; cursor: not-allowed; }
+
+        /* MAIN LAYOUT */
+        .container {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        /* SIDEBAR / MENU NAVIGASI */
+        .sidebar {
+            width: 250px;
+            background-color: var(--panel-bg);
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            padding: 20px 10px;
+            gap: 10px;
+            overflow-y: auto;
+        }
+
+        .nav-btn {
+            background-color: transparent;
+            color: var(--text-main);
+            border: 1px solid var(--border);
+            text-align: left;
+            padding: 12px 15px;
+            font-weight: normal;
+        }
+
+        .nav-btn:hover, .nav-btn.active {
+            background-color: var(--border);
+            border-left: 4px solid var(--accent-gold);
+        }
+
+        /* CONTENT AREA */
+        .content {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+        }
+
+        .tab-pane { display: none; animation: fadeIn 0.3s ease; }
+        .tab-pane.active { display: block; }
+
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+        /* KARTU INFORMASI */
+        .card {
+            background-color: var(--panel-bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .card h2 {
+            margin-bottom: 15px;
+            color: var(--accent-gold);
+            font-size: 1.2rem;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 10px;
+        }
+
+        .data-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+        }
+
+        .data-item {
+            background: var(--bg-color);
+            padding: 15px;
+            border-radius: 6px;
+            text-align: center;
+        }
+
+        .data-label { font-size: 0.85rem; color: var(--text-muted); display: block; margin-bottom: 5px;}
+        .data-value { font-size: 1.2rem; font-weight: bold; }
+
+        .text-bullish { color: var(--bullish); }
+        .text-bearish { color: var(--bearish); }
+        .text-neutral { color: var(--accent-gold); }
+
+        /* LIST & ALERT */
+        ul { list-style-position: inside; margin-top: 10px; }
+        li { margin-bottom: 5px; color: var(--text-muted); }
+        
+        .alert {
+            padding: 15px;
+            border-radius: 6px;
+            margin-top: 15px;
+            font-weight: bold;
+        }
+        .alert-success { background: rgba(16, 185, 129, 0.2); color: var(--bullish); border: 1px solid var(--bullish); }
+        .alert-danger { background: rgba(239, 68, 68, 0.2); color: var(--bearish); border: 1px solid var(--bearish); }
+        .alert-warning { background: rgba(251, 191, 36, 0.2); color: var(--accent-gold); border: 1px solid var(--accent-gold); }
+
+        /* CHART CONTAINER */
+        .chart-container {
+            width: 100%;
+            height: 400px;
+            background-color: var(--panel-bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 10px;
+            margin-top: 20px;
+        }
+
+        /* LOADING SPINNER */
+        #loading { display: none; margin-left: 10px; font-size: 0.9rem; color: var(--accent-gold); }
+
+        /* RESPONSIVE DESIGN */
+        @media (max-width: 768px) {
+            .container { flex-direction: column; }
+            .sidebar { width: 100%; border-right: none; border-bottom: 1px solid var(--border); flex-direction: row; flex-wrap: wrap; justify-content: center; }
+            .nav-btn { flex: 1 1 45%; text-align: center; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- BAGIAN HEADER -->
+    <header>
+        <h1>SMC Toolbox XAUUSD</h1>
+        <div class="api-setup">
+            <input type="text" id="apiKeyInput" placeholder="Masukkan API Key Twelve Data">
+            <button id="btnFetch" onclick="fetchMarketData()">Ambil Data</button>
+            <span id="loading">Memuat Data...</span>
+        </div>
+    </header>
+
+    <!-- BAGIAN UTAMA (SIDEBAR & KONTEN) -->
+    <div class="container">
+        <!-- SIDEBAR NAVIGASI -->
+        <div class="sidebar">
+            <button class="nav-btn active" onclick="switchTab('analisa')">Analisa Hari Ini</button>
+            <button class="nav-btn" onclick="switchTab('buy')">Cari Sinyal Buy</button>
+            <button class="nav-btn" onclick="switchTab('sell')">Cari Sinyal Sell</button>
+            <button class="nav-btn" onclick="switchTab('besok')">Prediksi Besok</button>
+            <button class="nav-btn" onclick="switchTab('news')">Cek News</button>
+        </div>
+
+        <!-- AREA KONTEN DINAMIS -->
+        <div class="content">
+            
+            <!-- PESAN SEBELUM LOAD DATA -->
+            <div id="welcomeMsg" class="card">
+                <h2>Selamat Datang</h2>
+                <p>Silakan masukkan API Key Twelve Data Anda di sudut kanan atas dan klik "Ambil Data" untuk memulai analisa Smart Money Concept (SMC) untuk XAU/USD.</p>
+            </div>
+
+            <!-- TAB 1: ANALISA HARI INI -->
+            <div id="tab-analisa" class="tab-pane">
+                <div class="card">
+                    <h2>Ringkasan Analisa (XAU/USD)</h2>
+                    <div class="data-grid">
+                        <div class="data-item">
+                            <span class="data-label">Harga Saat Ini</span>
+                            <span class="data-value" id="currentPrice">-</span>
+                        </div>
+                        <div class="data-item">
+                            <span class="data-label">Bias Harian</span>
+                            <span class="data-value" id="dailyBias">-</span>
+                        </div>
+                        <div class="data-item">
+                            <span class="data-label">Prev. Daily High (PDH)</span>
+                            <span class="data-value text-bullish" id="valPDH">-</span>
+                        </div>
+                        <div class="data-item">
+                            <span class="data-label">Prev. Daily Low (PDL)</span>
+                            <span class="data-value text-bearish" id="valPDL">-</span>
+                        </div>
+                        <div class="data-item">
+                            <span class="data-label">Struktur H1 (Trend)</span>
+                            <span class="data-value" id="h1Structure">-</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h2>Zona OTE & FVG (Fair Value Gap)</h2>
+                    <div class="data-grid">
+                        <div class="data-item">
+                            <span class="data-label">Discount Zone (< 50%)</span>
+                            <span class="data-value text-bullish" id="discountZone">-</span>
+                        </div>
+                        <div class="data-item">
+                            <span class="data-label">Premium Zone (> 50%)</span>
+                            <span class="data-value text-bearish" id="premiumZone">-</span>
+                        </div>
+                    </div>
+                    <h3 style="margin-top:20px; font-size:1rem;">FVG Aktif (M15 - Unmitigated)</h3>
+                    <ul id="fvgList">
+                        <li>Belum ada data.</li>
+                    </ul>
+                </div>
+
+                <!-- CHART MINI -->
+                <div class="chart-container">
+                    <canvas id="miniChart"></canvas>
+                </div>
+            </div>
+
+            <!-- TAB 2: CARI SINYAL BUY -->
+            <div id="tab-buy" class="tab-pane">
+                <div class="card">
+                    <h2>Pencarian Sinyal Buy (Setup SMC)</h2>
+                    <p>Mencari setup valid berdasarkan aturan:</p>
+                    <ul>
+                        <li>Harga berada di area <b>Discount</b> (di bawah 50% rentang swing terakhir).</li>
+                        <li>Terdapat <b>FVG Bullish</b> di sekitar area saat ini.</li>
+                        <li>Terdapat indikasi <b>Liquidity Sweep</b> (harga menyapu level low sebelumnya/PDL lalu ditutup naik).</li>
+                    </ul>
+                    <div id="buyResultBox" class="alert alert-warning">
+                        Silakan ambil data terlebih dahulu.
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 3: CARI SINYAL SELL -->
+            <div id="tab-sell" class="tab-pane">
+                <div class="card">
+                    <h2>Pencarian Sinyal Sell (Setup SMC)</h2>
+                    <p>Mencari setup valid berdasarkan aturan:</p>
+                    <ul>
+                        <li>Harga berada di area <b>Premium</b> (di atas 50% rentang swing terakhir).</li>
+                        <li>Terdapat <b>FVG Bearish</b> di sekitar area saat ini.</li>
+                        <li>Terdapat indikasi <b>Liquidity Sweep</b> (harga menyapu level high sebelumnya/PDH lalu ditutup turun).</li>
+                    </ul>
+                    <div id="sellResultBox" class="alert alert-warning">
+                        Silakan ambil data terlebih dahulu.
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 4: PREDIKSI BESOK -->
+            <div id="tab-besok" class="tab-pane">
+                <div class="card">
+                    <h2>Prediksi Target Likuiditas Besok</h2>
+                    <p>Berdasarkan struktur harga hari ini, berikut adalah area yang kemungkinan akan menjadi magnet harga (Draw on Liquidity) keesokan harinya:</p>
+                    <div id="predictionBox" style="margin-top:15px; color: var(--accent-gold);">
+                        Menunggu data...
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 5: CEK NEWS -->
+            <div id="tab-news" class="tab-pane">
+                <div class="card">
+                    <h2>Kalender Berita Ekonomi (ForexFactory)</h2>
+                    <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 10px;">
+                        Catatan: Jika tabel berita tidak muncul (karena pemblokiran keamanan iframe oleh ForexFactory), Anda bisa melihatnya langsung di: 
+                        <a href="https://www.forexfactory.com/calendar?week=this" target="_blank" style="color:var(--accent-gold);">www.forexfactory.com</a>
+                    </p>
+                    <!-- Embed ForexFactory -->
+                    <iframe src="https://www.forexfactory.com/calendar?week=this" width="100%" height="500px" frameborder="0" style="border-radius: 8px; background: white;"></iframe>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- JAVASCRIPT LOGIC SMC & API FETCHING -->
+    <script>
+        // --- 1. STATE & INISIALISASI ---
+        let appData = {
+            h1: [],     // Data timeframe H1
+            m15: [],    // Data timeframe M15
+            pdh: 0,     // Previous Daily High
+            pdl: 0,     // Previous Daily Low
+            currentPrice: 0,
+            swings: [],
+            fib: { max: 0, min: 0, mid: 0 },
+            fvgs: [],
+            sweeps: { bullish: false, bearish: false }
+        };
+
+        let chartInstance = null; // Menyimpan instance Chart.js
+
+        // Muat API Key dari LocalStorage saat load
+        window.onload = () => {
+            const savedKey = localStorage.getItem('td_apikey');
+            if (savedKey) document.getElementById('apiKeyInput').value = savedKey;
+        };
+
+        // --- 2. FUNGSI UI (TABS) ---
+        function switchTab(tabId) {
+            // Hapus pesan selamat datang jika tab diklik
+            document.getElementById('welcomeMsg').style.display = 'none';
+
+            // Reset tombol nav
+            document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+
+            // Sembunyikan semua tab
+            document.querySelectorAll('.tab-pane').forEach(tab => tab.classList.remove('active'));
+            
+            // Tampilkan tab yang dipilih
+            document.getElementById('tab-' + tabId).classList.add('active');
+        }
+
+        // --- 3. FUNGSI FETCH DATA API ---
+        async function fetchMarketData() {
+            const apiKey = document.getElementById('apiKeyInput').value.trim();
+            if (!apiKey) {
+                alert("Masukkan API Key terlebih dahulu!");
+                return;
+            }
+            
+            // Simpan API Key di LocalStorage
+            localStorage.setItem('td_apikey', apiKey);
+
+            const btn = document.getElementById('btnFetch');
+            const loading = document.getElementById('loading');
+            
+            btn.disabled = true;
+            loading.style.display = 'inline';
+
+            try {
+                // Fetch H1 (Untuk Struktur, Swings, PDH/PDL - 100 candle terakhir)
+                const resH1 = await fetch(`https://api.twelvedata.com/time_series?symbol=XAU/USD&interval=1h&outputsize=120&apikey=${apiKey}`);
+                const dataH1 = await resH1.json();
+                
+                // Fetch M15 (Untuk deteksi FVG detail - 100 candle terakhir)
+                const resM15 = await fetch(`https://api.twelvedata.com/time_series?symbol=XAU/USD&interval=15min&outputsize=100&apikey=${apiKey}`);
+                const dataM15 = await resM15.json();
+
+                if (dataH1.status === "error" || dataM15.status === "error") {
+                    throw new Error(dataH1.message || dataM15.message || "Gagal mengambil data dari API.");
+                }
+
+                appData.h1 = dataH1.values;
+                appData.m15 = dataM15.values;
+                appData.currentPrice = parseFloat(appData.h1[0].close);
+
+                // Jalankan proses kalkulasi SMC
+                calculateSMC();
+                
+                // Render UI
+                renderAnalysis();
+                renderSignals();
+                renderPrediction();
+                renderChart();
+
+                // Pindah otomatis ke tab Analisa jika sukses
+                document.querySelector('.nav-btn').click();
+
+            } catch (error) {
+                alert("Error: " + error.message);
+            } finally {
+                btn.disabled = false;
+                loading.style.display = 'none';
+            }
+        }
+
+        // --- 4. LOGIKA PERHITUNGAN SMC (SMART MONEY CONCEPT) ---
+        function calculateSMC() {
+            calculatePDH_PDL();
+            calculateSwingsAndFib();
+            calculateStructure();
+            calculateFVG();
+            calculateSweeps();
+        }
+
+        // Hitung Previous Daily High / Low dari data H1
+        function calculatePDH_PDL() {
+            // Kelompokkan data H1 berdasarkan tanggal
+            let days = {};
+            appData.h1.forEach(candle => {
+                let date = candle.datetime.split(' ')[0]; // Ambil YYYY-MM-DD
+                if (!days[date]) days[date] = { high: -Infinity, low: Infinity };
+                
+                let h = parseFloat(candle.high);
+                let l = parseFloat(candle.low);
+                
+                if (h > days[date].high) days[date].high = h;
+                if (l < days[date].low) days[date].low = l;
+            });
+
+            // Ambil array tanggal yang disortir descending (terbaru di index 0)
+            let sortedDates = Object.keys(days).sort((a, b) => new Date(b) - new Date(a));
+            
+            // Tanggal index 0 adalah hari ini (berjalan), index 1 adalah kemarin (Previous Day)
+            if (sortedDates.length > 1) {
+                let prevDayStr = sortedDates[1];
+                appData.pdh = days[prevDayStr].high;
+                appData.pdl = days[prevDayStr].low;
+            }
+        }
+
+        // Deteksi Swing High/Low (Fraktal 3-bar) & Fibonacci OTE
+        function calculateSwingsAndFib() {
+            appData.swings = [];
+            const data = appData.h1;
+            
+            // Loop data H1 dari lama ke baru (data twelvedata index 0 = paling baru)
+            // Deteksi swing butuh minimal 2 candle kiri dan 2 candle kanan
+            let highest = -Infinity;
+            let lowest = Infinity;
+
+            for (let i = 2; i < data.length - 2; i++) {
+                let isHigh = true;
+                let isLow = true;
+                let h = parseFloat(data[i].high);
+                let l = parseFloat(data[i].low);
+
+                // Cek tetangga
+                for (let j = i - 2; j <= i + 2; j++) {
+                    if (i === j) continue;
+                    if (parseFloat(data[j].high) >= h) isHigh = false;
+                    if (parseFloat(data[j].low) <= l) isLow = false;
+                }
+
+                if (isHigh) appData.swings.push({ type: 'High', price: h, time: data[i].datetime, index: i });
+                if (isLow) appData.swings.push({ type: 'Low', price: l, time: data[i].datetime, index: i });
+            }
+
+            // Cari harga tertinggi dan terendah dari rentang terbaru untuk OTE
+            // Ambil 50 candle terakhir untuk mencari major swing leg terakhir
+            for(let i = 0; i < 50; i++) {
+                if(!data[i]) break;
+                let h = parseFloat(data[i].high);
+                let l = parseFloat(data[i].low);
+                if (h > highest) highest = h;
+                if (l < lowest) lowest = l;
+            }
+
+            appData.fib.max = highest;
+            appData.fib.min = lowest;
+            appData.fib.mid = lowest + ((highest - lowest) / 2); // Level 50% (Equilibrium)
+        }
+
+        // Struktur H1: Higher High, Lower Low dll
+        function calculateStructure() {
+            // Ambil 2 swing terakhir
+            if (appData.swings.length < 4) {
+                appData.structure = "Sideways (Data Kurang)";
+                return;
+            }
+            // Karena data dibaca index 0 = terbaru, maka swing awal di array adalah swing terbaru
+            let recentHighs = appData.swings.filter(s => s.type === 'High');
+            let recentLows = appData.swings.filter(s => s.type === 'Low');
+
+            if (recentHighs.length >= 2 && recentLows.length >= 2) {
+                let isHH = recentHighs[0].price > recentHighs[1].price;
+                let isHL = recentLows[0].price > recentLows[1].price;
+                let isLH = recentHighs[0].price < recentHighs[1].price;
+                let isLL = recentLows[0].price < recentLows[1].price;
+
+                if (isHH && isHL) appData.structure = "Bullish (HH, HL)";
+                else if (isLH && isLL) appData.structure = "Bearish (LH, LL)";
+                else appData.structure = "Konsolidasi / Choppy";
+            } else {
+                appData.structure = "Konsolidasi";
+            }
+        }
+
+        // Deteksi FVG di M15
+        function calculateFVG() {
+            appData.fvgs = [];
+            const data = appData.m15;
+
+            // FVG butuh 3 candle. i = candle 1 (terbaru), i+1 = candle 2, i+2 = candle 3 (terlama)
+            for (let i = 0; i < data.length - 2; i++) {
+                let candle1 = data[i+2]; // Terlama
+                let candle2 = data[i+1]; // Tengah (tempat FVG terbentuk)
+                let candle3 = data[i];   // Terbaru
+
+                let low1 = parseFloat(candle1.low);
+                let high1 = parseFloat(candle1.high);
+                let low3 = parseFloat(candle3.low);
+                let high3 = parseFloat(candle3.high);
+
+                // Bullish FVG: Low candle terbaru (3) > High candle terlama (1)
+                if (low3 > high1) {
+                    appData.fvgs.push({ type: 'Bullish', top: low3, bottom: high1, time: candle2.datetime, mitigated: false });
+                }
+                
+                // Bearish FVG: High candle terbaru (3) < Low candle terlama (1)
+                if (high3 < low1) {
+                    appData.fvgs.push({ type: 'Bearish', top: low1, bottom: high3, time: candle2.datetime, mitigated: false });
+                }
+            }
+
+            // Cek mitigasi: apakah harga sesudahnya pernah menembus/menyentuh gap tersebut?
+            appData.fvgs.forEach(fvg => {
+               // Cari index waktu FVG di array
+               let idx = data.findIndex(d => d.datetime === fvg.time);
+               if(idx > -1) {
+                   // Cek candle dari setelah fvg (idx - 1) menuju yang terbaru (0)
+                   for (let j = idx - 1; j >= 0; j--) {
+                       let h = parseFloat(data[j].high);
+                       let l = parseFloat(data[j].low);
+                       if (fvg.type === 'Bullish' && l <= fvg.top) fvg.mitigated = true;
+                       if (fvg.type === 'Bearish' && h >= fvg.bottom) fvg.mitigated = true;
+                   }
+               }
+            });
+
+            // Hanya simpan FVG yang belum termitigasi
+            appData.fvgs = appData.fvgs.filter(f => !f.mitigated);
+        }
+
+        // Deteksi Liquidity Sweep (Manipulasi di PDH / PDL)
+        function calculateSweeps() {
+            appData.sweeps.bullish = false;
+            appData.sweeps.bearish = false;
+
+            // Cek 5 candle H1 terakhir apakah menembus PDL/PDH tapi ditutup di dalamnya (Sweep)
+            for (let i = 0; i < 5; i++) {
+                let c = appData.h1[i];
+                let h = parseFloat(c.high);
+                let l = parseFloat(c.low);
+                let close = parseFloat(c.close);
+
+                // Bullish Sweep: Ekor bawah nembus PDL, tapi Close di atas PDL
+                if (l < appData.pdl && close > appData.pdl) {
+                    appData.sweeps.bullish = true;
+                }
+
+                // Bearish Sweep: Ekor atas nembus PDH, tapi Close di bawah PDH
+                if (h > appData.pdh && close < appData.pdh) {
+                    appData.sweeps.bearish = true;
+                }
+            }
+        }
+
+        // --- 5. RENDER UI FUNGSI ---
+        function renderAnalysis() {
+            document.getElementById('currentPrice').innerText = appData.currentPrice.toFixed(2);
+            document.getElementById('valPDH').innerText = appData.pdh.toFixed(2);
+            document.getElementById('valPDL').innerText = appData.pdl.toFixed(2);
+            
+            // Bias Harian
+            let biasEl = document.getElementById('dailyBias');
+            if (appData.currentPrice > appData.pdh) {
+                biasEl.innerText = "Bullish"; biasEl.className = "data-value text-bullish";
+            } else if (appData.currentPrice < appData.pdl) {
+                biasEl.innerText = "Bearish"; biasEl.className = "data-value text-bearish";
+            } else {
+                biasEl.innerText = "Netral (Dalam Range)"; biasEl.className = "data-value text-neutral";
+            }
+
+            document.getElementById('h1Structure').innerText = appData.structure;
+
+            // Zona
+            document.getElementById('discountZone').innerText = `< ${appData.fib.mid.toFixed(2)}`;
+            document.getElementById('premiumZone').innerText = `> ${appData.fib.mid.toFixed(2)}`;
+
+            // FVG List
+            let fvgListEl = document.getElementById('fvgList');
+            fvgListEl.innerHTML = '';
+            if (appData.fvgs.length === 0) {
+                fvgListEl.innerHTML = '<li>Tidak ada FVG aktif (Semua termitigasi).</li>';
+            } else {
+                // Tampilkan maksimal 5 FVG terdekat dengan harga saat ini
+                let sortedFvg = appData.fvgs.sort((a,b) => 
+                    Math.abs(appData.currentPrice - a.top) - Math.abs(appData.currentPrice - b.top)
+                ).slice(0, 5);
+
+                sortedFvg.forEach(f => {
+                    let color = f.type === 'Bullish' ? 'text-bullish' : 'text-bearish';
+                    let li = document.createElement('li');
+                    li.innerHTML = `<span class="${color}">${f.type} FVG</span>: ${f.bottom.toFixed(2)} - ${f.top.toFixed(2)} (Waktu: ${f.time})`;
+                    fvgListEl.appendChild(li);
+                });
+            }
+        }
+
+        function renderSignals() {
+            const price = appData.currentPrice;
+            const isDiscount = price < appData.fib.mid;
+            const isPremium = price > appData.fib.mid;
+
+            const hasBullishFVG = appData.fvgs.some(f => f.type === 'Bullish');
+            const hasBearishFVG = appData.fvgs.some(f => f.type === 'Bearish');
+
+            // -- BUY SIGNAL LOGIC --
+            let buyBox = document.getElementById('buyResultBox');
+            if (isDiscount && hasBullishFVG && appData.sweeps.bullish) {
+                buyBox.className = 'alert alert-success';
+                buyBox.innerHTML = `✅ <b>Sinyal Buy Valid!</b><br>
+                - Harga di Discount Zone.<br>
+                - Terdapat FVG Bullish aktif.<br>
+                - Terjadi Liquidity Sweep di bawah (Bullish Sweep).<br>
+                <b>Setup OTE Terkonfirmasi.</b> Target terdekat: Premium Zone (${appData.fib.mid.toFixed(2)}).`;
+            } else {
+                buyBox.className = 'alert alert-danger';
+                buyBox.innerHTML = `❌ <b>Belum Ada Sinyal Buy Kuat.</b><br>
+                Status:<br>
+                - Di Discount Zone? ${isDiscount ? 'Ya ✅' : 'Tidak ❌'}<br>
+                - Ada FVG Bullish? ${hasBullishFVG ? 'Ya ✅' : 'Tidak ❌'}<br>
+                - Ada Sweep Bawah? ${appData.sweeps.bullish ? 'Ya ✅' : 'Tidak ❌'}`;
+            }
+
+            // -- SELL SIGNAL LOGIC --
+            let sellBox = document.getElementById('sellResultBox');
+            if (isPremium && hasBearishFVG && appData.sweeps.bearish) {
+                sellBox.className = 'alert alert-success';
+                sellBox.innerHTML = `✅ <b>Sinyal Sell Valid!</b><br>
+                - Harga di Premium Zone.<br>
+                - Terdapat FVG Bearish aktif.<br>
+                - Terjadi Liquidity Sweep di atas (Bearish Sweep).<br>
+                <b>Setup OTE Terkonfirmasi.</b> Target terdekat: Discount Zone (${appData.fib.mid.toFixed(2)}).`;
+            } else {
+                sellBox.className = 'alert alert-danger';
+                sellBox.innerHTML = `❌ <b>Belum Ada Sinyal Sell Kuat.</b><br>
+                Status:<br>
+                - Di Premium Zone? ${isPremium ? 'Ya ✅' : 'Tidak ❌'}<br>
+                - Ada FVG Bearish? ${hasBearishFVG ? 'Ya ✅' : 'Tidak ❌'}<br>
+                - Ada Sweep Atas? ${appData.sweeps.bearish ? 'Ya ✅' : 'Tidak ❌'}`;
+            }
+        }
+
+        function renderPrediction() {
+            let predBox = document.getElementById('predictionBox');
+            let txt = "";
+
+            if (appData.structure.includes("Bullish")) {
+                txt = `Trend saat ini <b>Bullish</b>. Target likuiditas utama (Draw on Liquidity) kemungkinan akan menyapu <b>Previous Daily High (PDH) di ${appData.pdh.toFixed(2)}</b> atau swing high terdekat.`;
+                if (!appData.sweeps.bullish) {
+                    txt += `<br><br>Skenario: Tunggu harga turun mengambil likuiditas ke zona Discount di bawah ${appData.fib.mid.toFixed(2)} sebelum melanjutkan kenaikan.`;
+                }
+            } else if (appData.structure.includes("Bearish")) {
+                txt = `Trend saat ini <b>Bearish</b>. Target likuiditas utama (Draw on Liquidity) kemungkinan akan menyapu <b>Previous Daily Low (PDL) di ${appData.pdl.toFixed(2)}</b> atau swing low terdekat.`;
+                if (!appData.sweeps.bearish) {
+                    txt += `<br><br>Skenario: Tunggu harga naik (pullback) mengambil likuiditas ke zona Premium di atas ${appData.fib.mid.toFixed(2)} sebelum melanjutkan penurunan.`;
+                }
+            } else {
+                txt = `Pasangan XAU/USD saat ini dalam kondisi <b>Konsolidasi / Ranging</b>. <br><br>Skenario: Tunggu penembusan batas PDH (${appData.pdh.toFixed(2)}) atau PDL (${appData.pdl.toFixed(2)}) untuk melihat arah tren yang jelas besok. Buy di Low, Sell di High rentang.`;
+            }
+            predBox.innerHTML = txt;
+        }
+
+        // --- 6. CHART.JS VISUALISASI ---
+        function renderChart() {
+            const ctx = document.getElementById('miniChart').getContext('2d');
+            
+            // Ambil 40 data terakhir (H1) agar chart tidak terlalu padat
+            let chartData = appData.h1.slice(0, 40).reverse(); 
+
+            let labels = chartData.map(d => d.datetime.split(' ')[1].substring(0,5)); // Jam saja HH:MM
+            let closePrices = chartData.map(d => parseFloat(d.close));
+
+            // Jika chart sudah ada, hancurkan sebelum buat baru
+            if (chartInstance) {
+                chartInstance.destroy();
+            }
+
+            chartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Harga Penutupan (H1)',
+                        data: closePrices,
+                        borderColor: '#fbbf24',
+                        backgroundColor: 'rgba(251, 191, 36, 0.1)',
+                        borderWidth: 2,
+                        pointRadius: 2,
+                        tension: 0.1,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        annotation: {
+                            annotations: {
+                                // Garis PDH
+                                line1: {
+                                    type: 'line',
+                                    yMin: appData.pdh,
+                                    yMax: appData.pdh,
+                                    borderColor: '#ef4444',
+                                    borderWidth: 2,
+                                    borderDash: [5, 5],
+                                    label: { content: 'PDH', display: true, position: 'end', backgroundColor: '#ef4444' }
+                                },
+                                // Garis PDL
+                                line2: {
+                                    type: 'line',
+                                    yMin: appData.pdl,
+                                    yMax: appData.pdl,
+                                    borderColor: '#10b981',
+                                    borderWidth: 2,
+                                    borderDash: [5, 5],
+                                    label: { content: 'PDL', display: true, position: 'end', backgroundColor: '#10b981' }
+                                },
+                                // Garis Fibonacci 50% (Equilibrium)
+                                line3: {
+                                    type: 'line',
+                                    yMin: appData.fib.mid,
+                                    yMax: appData.fib.mid,
+                                    borderColor: '#94a3b8',
+                                    borderWidth: 1,
+                                    label: { content: 'Fib 50%', display: true, position: 'start', backgroundColor: '#334155' }
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            ticks: { color: '#94a3b8' },
+                            grid: { color: '#334155' }
+                        },
+                        x: {
+                            ticks: { color: '#94a3b8', maxTicksLimit: 10 },
+                            grid: { display: false }
+                        }
+                    }
+                }
+            });
+        }
+    </script>
+</body>
+</html>
